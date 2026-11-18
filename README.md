@@ -148,14 +148,20 @@ Run it with `cargo run -p mia-ui` (binary `mia`).
 - **Model**: `mia-ui::NoModel` answers every completion with an
   honest "no model configured" message, so the app runs and stays
   useful without a provider key — preferences, facts and documents
-  never touch the model. With `MIA_MODEL_KEY` set, the binary
-  builds `OpenAiCompat` (`LlmConfig::new("mia-model", base, key,
-  model)`; defaults `https://api.meta.ai/v1` /
-  `muse-spark-1.1`). Note: `OpenAiCompat` is built from an
-  `LlmConfig`, not from a `with_key` constructor (that one belongs
-  to the speech models).
+  never touch the model. To use a real model, run `mia --setup` and
+  pick a provider — Gemini, Groq, DeepSeek, Muse Spark (Meta),
+  OpenAI, Ollama (local, no key) or a custom OpenAI-compatible
+  endpoint — then the model and key; the choice is saved in
+  `model.yaml` in the data dir (the key stays in that file, on the
+  machine). Precedence at startup: `MIA_MODEL_KEY` (with
+  `MIA_MODEL_BASE_URL` / `MIA_MODEL_ID`, defaults
+  `https://api.meta.ai/v1` / `muse-spark-1.1`) wins over `model.yaml`,
+  which wins over `NoModel`. `mia --dry-run` prints which model
+  would be used without opening the GUI. Note: `OpenAiCompat` is
+  built from an `LlmConfig`, not from a `with_key` constructor (that
+  one belongs to the speech models).
 - **Data**: `--data-dir` (default `./mia-data`) holds `wiki/`,
-  `graph.db` and `USER.md`; `--wiki-dir` / `--graph-db` /
+  `graph.db`, `USER.md` and `model.yaml`; `--wiki-dir` / `--graph-db` /
   `--user-md` override each path.
 - **Deviation from the spec**: the spec pins `wgpu` 24, but
   `sequoia-ui` 0.1.5 brings its own wgpu through

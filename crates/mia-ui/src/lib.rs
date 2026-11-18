@@ -13,10 +13,14 @@ pub mod app;
 pub mod chat;
 pub mod layout;
 pub mod model;
+pub mod providers;
+pub mod setup;
 pub mod tree;
 
 pub use app::MiaApp;
 pub use chat::{ChatMessage, ChatRole, ChatRow};
 pub use layout::{EdgeLayout, GraphLayout, NodeLayout, layout_graph};
 pub use model::NoModel;
+pub use providers::ModelProvider;
+pub use setup::{ModelConfig, run_setup};
 pub use tree::pages_to_nodes;
