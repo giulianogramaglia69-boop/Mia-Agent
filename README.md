@@ -5,7 +5,7 @@ It lives on the user's computer, learns from them, and acts in the
 real world (browser, notes, calendar, mail) through isolated Docker
 containers exposed via MCP.
 
-> Status: **Phase 3 — Native GUI** (`mia-ui` ✓: 3-column Sequoia app, chat, wiki tree, graph canvas).
+> Status: **Phase 5 — Polish** (`mia-mcp` ✓, containers ✓, WGSL graph glow ✓).
 > The roadmap is in the project prompt: 5 phases over 10 weeks.
 
 ## Rules
@@ -29,8 +29,10 @@ mia-agent/
 │   ├── mia-wiki/       # Markdown ingest, search, storage (Phase 2 ✓)
 │   ├── mia-graph/      # SQLite entities/relations (Phase 1 ✓)
 │   ├── mia-ui/         # Sequoia app, panels, widgets (Phase 3 ✓)
+│   ├── mia-mcp/        # MCP client, provider, write gate (Phase 4 ✓)
+│   ├── mia-google/     # Google OAuth device flow (Phase 4 ✓)
 │   └── mia-cli/        # run, ingest, export (Phase 2)
-├── containers/          # browser, notes, calendar, mail (Phase 4)
+├── containers/          # browser, notes, calendar, mail (Phase 4 ✓)
 ├── docker-compose.yml
 └── README.md
 ```
@@ -98,9 +100,9 @@ for the `World`).
   crates.io (0.0.72, same code, published). The facade's lib name
   is `harness`; the loop lives in `harness-rs-loop`, the traits in
   `harness-rs-core`, the world builder in `harness-rs-context`.
-- **No MCP client yet**: `turul-mcp-client`/`neva` are Phase 4
-  (containers). `harness` ships its own `harness-mcp-client` —
-  the likely candidate then.
+- **MCP client**: `harness-rs-mcp-client` 0.0.72 (the harness family's
+  own client; the spec's `turul-mcp-client`/`neva` were not needed).
+  `mia-mcp` (Phase 4) wraps it as a `ToolProvider` — see below.
 - **No model client yet**: the model is injected as
   `Arc<dyn harness_core::Model>`. The `mia` GUI binary wires one
   when `MIA_MODEL_KEY` is set (`harness-models::OpenAiCompat` over
@@ -137,8 +139,7 @@ Run it with `cargo run -p mia-ui` (binary `mia`).
   a page reads it into the chat. Graph: a `Canvas` that draws the
   entities on a circle and the relations as labelled edges
   (2D `Painter` drawing in v0.1; the canvas also supports WGSL
-  shader passes for later polish).
-- **Threading**: button callbacks are synchronous, but
+  shader passes for later polish).- **Threading**: button callbacks are synchronous, but
   `MiaRuntime::handle` is async and the harness loop needs a Tokio
   runtime (it sleeps between turns). Submit goes through
   `AsyncRuntime::spawn_future`, whose future blocks on a Tokio
@@ -166,19 +167,79 @@ Run it with `cargo run -p mia-ui` (binary `mia`).
 - **Deviation from the spec**: the spec pins `wgpu` 24, but
   `sequoia-ui` 0.1.5 brings its own wgpu through
   `sequoia_platform` — `mia-ui` does not depend on `wgpu`
-  directly. The graph canvas is 2D in v0.1; the WGSL canvas the
-  spec names is a Phase 5 polish item.
-- **Not smoke-tested on a display yet**: the crate builds and its
-  unit tests pass on a headless VM, but no window was opened there
-  — the first real run belongs on a machine with a display.
+  directly. The graph canvas is 2D in v0.1, with a WGSL glow pass
+  on top (Phase 5, `mia-ui::glow`).
+- **Smoke-tested headless**: on a VM without a display the app runs
+  under Xvfb with the Mesa lavapipe software Vulkan driver
+  (`libxkbcommon-x11-0` + `mesa-vulkan-drivers` installed) and stays
+  alive without panicking — the first real run with interaction
+  still belongs on a machine with a display.
+
+## Phase 4 — MCP containers ✓
+
+Every real-world capability is its own Docker container exposing MCP
+over stdio; `mia` connects to them from `mia-data/mcp.yaml`.
+
+- **`mia-mcp`** — the client side. `McpProvider` connects to one
+  server (stdio process or Streamable HTTP) with
+  `harness-mcp-client` 0.0.72 and exposes its tools as a
+  `ToolProvider` for the runtime. The write gate lives here: a tool
+  not listed in `read_only_tools` is a write and follows
+  `write_policy` — `deny` (default, refuses), `allow` (local trusted
+  servers only), `prompt` (asks on the terminal, s/n). The spec's
+  rule is enforced in code: no write without explicit confirmation,
+  never a direct `mail_send`. A server that fails to start does not
+  crash the app — `mia` warns on stderr and continues without it.
+  `mia --dry-run` prints the model and the connected MCP servers.
+  `McpConfig` (`mcp.yaml`) is serde YAML: name, transport
+  (`stdio` + program/args, or `http` + url), `read_only_tools`,
+  `write_policy`. Note: the harness client is built on rmcp 1.7
+  while the servers use rmcp 3.11 — protocol negotiation makes them
+  interoperate (verified by the integration tests).
+- **`mia-google`** — Google OAuth device flow (RFC 8628) written by
+  hand with reqwest, no OAuth library: `start_device_flow` returns
+  the user code + verification URL, `poll_device_flow` waits and
+  saves the refresh token, `access_token()` renews it silently.
+  Credentials come from `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`
+  or `GOOGLE_CLIENT_SECRET_FILE`; tokens live only in
+  `<data>/token.json`. Tested against a fake Google server.
+- **Containers** (`containers/`, see `containers/README.md`):
+  `mia-notes` (text files: `list-notes`, `read-note`, `write-note`,
+  `delete-note`), `mia-browser` (`fetch-url`, http/https reader with
+  HTML stripped to text — no JavaScript), `mia-calendar`
+  (`list-events`, `create-event`), `mia-mail` (`list-messages`,
+  `read-message`, `send-message`). Calendar and mail have an `auth`
+  subcommand for the one-time device flow; without credentials they
+  still start and their tools explain how to authorize. Each has a
+  multi-stage Dockerfile (Rust 1.88 builder → Debian slim, non-root
+  user); `docker-compose.yml` wires the four services with volumes
+  and stdin attached for the stdio transport. CI
+  (`.github/workflows/containers.yml`) builds all four images,
+  validates the compose file and runs the MCP/container tests.
+  Docker is not on the dev VM, so images are verified by CI, not
+  locally.
+
+## Phase 5 — Polish ✓
+
+- **WGSL graph glow** (`mia-ui::glow`): the graph canvas keeps its
+  2D `Painter` drawing and wraps it in `Canvas::with_effect` with a
+  `graph_glow` shader (`shader!` macro, validated by naga at
+  compile time): a subtle accent-coloured lift proportional to pixel
+  luminance. Registered with `App::shader_type::<GraphGlow>()` —
+  without registration the draw is silently skipped. The shader
+  path is a fragment effect (≤256 B uniforms, max 3 textures), not
+  geometry: procedural nodes inside the shader don't scale, so the
+  2D drawing stays (full custom geometry would need `WgpuSurface`).
+- **Docs**: this README now covers Phases 4–5; `containers/README.md`
+  documents build, auth and the `mcp.yaml` wiring.
+- **Still open**: `mia-cli` (run/ingest/export, Phase 2 leftover),
+  a GUI confirmation dialog for MCP writes (today `write_policy`
+  is `deny` in the GUI — writes need the terminal `prompt` policy
+  or an explicit `allow`), and JS rendering in `mia-browser`.
 
 ## Verify
 
 ```sh
-cargo test -p mia-core
-cargo test -p mia-graph
-cargo test -p mia-wiki
-cargo test -p mia-runtime
-cargo test -p mia-ui
-cargo clippy -p mia-wiki -p mia-runtime -p mia-ui --all-targets -- -D warnings
+cargo test --workspace
+cargo clippy --workspace --all-targets -- -D warnings
 ```

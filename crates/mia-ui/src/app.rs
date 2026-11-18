@@ -24,6 +24,7 @@ use sequoia_ui::prelude::*;
 use sequoia_ui::view::{Canvas, Painter};
 
 use crate::chat::{ChatMessage, ChatRole, ChatRow};
+use crate::glow::{GraphGlow, graph_glow};
 use crate::layout::layout_graph;
 use crate::tree::pages_to_nodes;
 
@@ -97,6 +98,9 @@ impl MiaApp {
         App::new()
             .title("Mia Agent")
             .size(1280.0, 800.0)
+            // Lo shader del grafo va registrato o il suo disegno è un no-op
+            // silenzioso (Fase 5).
+            .shader_type::<GraphGlow>()
             .root(self.view())
             .run()
     }
@@ -225,7 +229,9 @@ impl MiaApp {
             .child(Text::new("Graph").size(15.0).bold())
             .child(
                 Canvas::new()
-                    .on_draw(move |painter: &mut Painter| {
+                    // Il disegno 2D finisce in un target offscreen e lo
+                    // shader graph_glow ci passa sopra (Fase 5).
+                    .with_effect(graph_glow(), move |painter: &mut Painter| {
                         let rect = painter.rect();
                         let (w, h) = (rect.size.width, rect.size.height);
                         painter.fill(rect, Fill::solid(CANVAS_BG));

@@ -1,0 +1,17 @@
+[package]
+name = "mia-notes"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "Apache-2.0"
+
+[dependencies]
+rmcp = { workspace = true }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "fs"] }
+serde = { workspace = true }
+schemars = { workspace = true }
+anyhow = { workspace = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "io-util"] }
+serde_json = { workspace = true }

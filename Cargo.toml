@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/mia-core", "crates/mia-graph", "crates/mia-wiki", "crates/mia-runtime", "crates/mia-ui"]
+members = ["crates/mia-core", "crates/mia-graph", "crates/mia-wiki", "crates/mia-runtime", "crates/mia-ui", "crates/mia-mcp", "crates/mia-google", "containers/mia-notes", "containers/mia-browser", "containers/mia-calendar", "containers/mia-mail"]
 resolver = "2"
 
 [workspace.package]
@@ -24,3 +24,10 @@ harness-rs-core = "0.0.72"
 harness-rs-context = "0.0.72"
 harness-rs-models = "0.0.72"
 sequoia-ui = "0.1.5"
+sequoia-shader = "0.1.5"
+harness-rs-mcp-client = "0.0.72"
+rmcp = { version = "3.11.0", features = ["transport-io"] }
+schemars = "1"
+anyhow = "1"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+base64 = "0.22"

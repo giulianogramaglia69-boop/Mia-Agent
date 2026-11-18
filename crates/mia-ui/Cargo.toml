@@ -11,10 +11,12 @@ path = "src/main.rs"
 
 [dependencies]
 mia-core = { path = "../mia-core" }
+mia-mcp = { path = "../mia-mcp" }
 mia-runtime = { path = "../mia-runtime" }
 mia-wiki = { path = "../mia-wiki" }
 mia-graph = { path = "../mia-graph" }
 sequoia-ui = { workspace = true }
+sequoia-shader = { workspace = true }
 harness-rs-core = { workspace = true }
 harness-rs-models = { workspace = true }
 tokio = { workspace = true }

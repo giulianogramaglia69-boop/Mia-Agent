@@ -11,6 +11,7 @@
 
 pub mod app;
 pub mod chat;
+pub mod glow;
 pub mod layout;
 pub mod model;
 pub mod providers;
@@ -19,6 +20,7 @@ pub mod tree;
 
 pub use app::MiaApp;
 pub use chat::{ChatMessage, ChatRole, ChatRow};
+pub use glow::{GraphGlow, graph_glow};
 pub use layout::{EdgeLayout, GraphLayout, NodeLayout, layout_graph};
 pub use model::NoModel;
 pub use providers::ModelProvider;

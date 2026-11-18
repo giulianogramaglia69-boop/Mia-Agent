@@ -1,0 +1,67 @@
+# Mia Agent — container MCP (Fase 4)
+#
+# Ogni capacità del mondo reale vive in un container e parla MCP su
+# stdio. Il client è `mia` (mcp.yaml), che lancia i container con
+# `docker compose run --rm -i <servizio>`.
+#
+#   docker compose build          # costruisce le 4 immagini
+#   docker compose run --rm calendar auth   # autorizza Google Calendar
+#   docker compose run --rm mail auth       # autorizza Gmail
+#
+# Le credenziali OAuth (Google Cloud, client "Desktop") vanno in un
+# file `.env` accanto a questo file (MAI nel repo):
+#   GOOGLE_CLIENT_ID=...
+#   GOOGLE_CLIENT_SECRET=...
+# oppure GOOGLE_CLIENT_SECRET_FILE=/run/secrets/...
+
+services:
+  notes:
+    build:
+      context: .
+      dockerfile: containers/mia-notes/Dockerfile
+    image: mia-notes:latest
+    stdin_open: true
+    tty: false
+    volumes:
+      - mia-notes-data:/data
+
+  browser:
+    build:
+      context: .
+      dockerfile: containers/mia-browser/Dockerfile
+    image: mia-browser:latest
+    stdin_open: true
+    tty: false
+
+  calendar:
+    build:
+      context: .
+      dockerfile: containers/mia-calendar/Dockerfile
+    image: mia-calendar:latest
+    stdin_open: true
+    tty: false
+    environment:
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - GOOGLE_CLIENT_SECRET_FILE=${GOOGLE_CLIENT_SECRET_FILE:-}
+    volumes:
+      - mia-calendar-data:/data
+
+  mail:
+    build:
+      context: .
+      dockerfile: containers/mia-mail/Dockerfile
+    image: mia-mail:latest
+    stdin_open: true
+    tty: false
+    environment:
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - GOOGLE_CLIENT_SECRET_FILE=${GOOGLE_CLIENT_SECRET_FILE:-}
+    volumes:
+      - mia-mail-data:/data
+
+volumes:
+  mia-notes-data:
+  mia-calendar-data:
+  mia-mail-data:

@@ -5,7 +5,12 @@
 //! `mia --setup [--data-dir <path>]`: scegli il provider del modello
 //! (Gemini, Groq, DeepSeek, Muse Spark, OpenAI, Ollama locale o un
 //! endpoint OpenAI-compatibile) e salva la chiave in `model.yaml`.
-//! `mia --dry-run`: mostra quale modello verrebbe usato, senza aprire la GUI.
+//! `mia --dry-run`: mostra quale modello verrebbe usato e quali server MCP
+//! sono collegati, senza aprire la GUI.
+//!
+//! MCP: i server in `mia-data/mcp.yaml` (note, browser, calendario, mail)
+//! sono collegati all'avvio come provider di tool del runtime; un server
+//! che non parte non blocca l'app (avviso su stderr).
 //!
 //! Data defaults to `./mia-data` (wiki in `mia-data/wiki`, graph in
 //! `mia-data/graph.db`, preferences in `mia-data/USER.md`, model config
@@ -24,7 +29,9 @@ use std::sync::Arc;
 
 use harness_core::Model;
 use harness_models::{LlmConfig, OpenAiCompat};
+use mia_core::ToolProvider;
 use mia_graph::SqliteGraph;
+use mia_mcp::{McpConfig, McpProvider};
 use mia_runtime::{MiaRuntime, RuntimeBudget};
 use mia_ui::{MiaApp, ModelConfig, NoModel, run_setup};
 use mia_wiki::FileWiki;
@@ -81,26 +88,54 @@ fn main() -> Result<(), Box<dyn Error>> {
             },
         };
 
-    if opts.dry_run {
-        println!("Modello: {model_desc}");
-        return Ok(());
-    }
-
-    let wiki = Arc::new(FileWiki::open(&wiki_dir)?);
-    let graph = Arc::new(SqliteGraph::open(&graph_db)?);
-
     // The harness loop sleeps between turns, so runtime calls need a
     // Tokio runtime. It lives for the whole app lifetime.
     let tokio_rt = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
     let handle = tokio_rt.handle().clone();
+
+    // MCP (Fase 4): collegare i server di mcp.yaml come provider di tool.
+    // Un server che non parte non blocca l'app: avviso e si continua.
+    let mcp_config = McpConfig::load(&data_dir);
+    let mut providers: Vec<Arc<dyn ToolProvider>> = Vec::new();
+    let mut mcp_report: Vec<String> = Vec::new();
+    for server in &mcp_config.servers {
+        match tokio_rt.block_on(McpProvider::connect(server)) {
+            Ok(provider) => {
+                let n = tokio_rt
+                    .block_on(provider.list_tools())
+                    .map(|t| t.len())
+                    .unwrap_or(0);
+                mcp_report.push(format!("{}: {n} tool", server.name));
+                providers.push(Arc::new(provider));
+            }
+            Err(e) => eprintln!("Mia: server MCP `{}` non collegato: {e}", server.name),
+        }
+    }
+
+    if opts.dry_run {
+        println!("Modello: {model_desc}");
+        if mcp_report.is_empty() {
+            println!(
+                "MCP: nessun server collegato (mcp.yaml mancante o vuoto in {})",
+                data_dir.display()
+            );
+        } else {
+            println!("MCP: {}", mcp_report.join(", "));
+        }
+        return Ok(());
+    }
+
+    let wiki = Arc::new(FileWiki::open(&wiki_dir)?);
+    let graph = Arc::new(SqliteGraph::open(&graph_db)?);
+
     let runtime = tokio_rt.block_on(MiaRuntime::new(
         model,
         wiki.clone(),
         wiki.clone(),
         graph.clone(),
-        vec![],
+        providers,
         user_md,
         RuntimeBudget::default(),
     ))?;
