@@ -1,0 +1,23 @@
+[package]
+name = "mia-runtime"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Agentic loop, classification and hooks for Mia Agent (harness-rs)"
+
+[dependencies]
+mia-core = { path = "../mia-core" }
+mia-wiki = { path = "../mia-wiki" }
+harness-rs-loop = { workspace = true }
+harness-rs-core = { workspace = true }
+harness-rs-context = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+async-trait = { workspace = true }
+
+[dev-dependencies]
+mia-graph = { path = "../mia-graph" }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/mia-core", "crates/mia-graph"]
+members = ["crates/mia-core", "crates/mia-graph", "crates/mia-wiki", "crates/mia-runtime"]
 resolver = "2"
 
 [workspace.package]
@@ -15,3 +15,10 @@ async-trait = "0.1"
 thiserror = "2"
 rusqlite = { version = "0.32", features = ["bundled"] }
 chrono = "0.4"
+tantivy = "0.22"
+pulldown-cmark = "0.12"
+serde_yaml = "0.9"
+tokio = { version = "1", features = ["full"] }
+harness-rs-loop = "0.0.72"
+harness-rs-core = "0.0.72"
+harness-rs-context = "0.0.72"
