@@ -1,13 +1,13 @@
 ; NSIS installer for Mia Agent on Windows (built in CI on windows-latest).
 ; Expects mia.exe next to this script (the CI build renames
 ; mia-windows-x86_64.exe to mia.exe first).
-; Output: MiaAgent-0.1.0-Setup.exe
+; Output: MiaAgent-0.1.1-Setup.exe
 ; First launch opens Mia's own in-app setup screen (no model yet).
 
 !include "MUI2.nsh"
 
 !define APPNAME "Mia Agent"
-!define VERSION "0.1.0"
+!define VERSION "0.1.1"
 
 Name "${APPNAME}"
 OutFile "MiaAgent-${VERSION}-Setup.exe"

@@ -11,7 +11,7 @@
 # its .desktop file and its icon.
 set -euo pipefail
 
-VERSION="${1:-0.1.0}"
+VERSION="${1:-0.1.1}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # MIA_BIN lets CI point at a cross-target binary, e.g.
 # target/x86_64-unknown-linux-gnu/release/mia.
