@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
 
 jobs:
   build:
@@ -37,6 +38,43 @@ jobs:
         with:
           name: ${{ matrix.asset }}
           path: ${{ matrix.asset }}
+      # Linux: real installers — .rpm (Fedora/RHEL) and .AppImage.
+      # The binary only links libc, but the GUI dlopens the graphics
+      # stack at runtime; the .rpm Requires list covers it.
+      - name: Build Linux installers (.rpm, .AppImage)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          cargo install cargo-generate-rpm --locked
+          cargo generate-rpm -p crates/mia-ui --target x86_64-unknown-linux-gnu
+          cp target/x86_64-unknown-linux-gnu/generate-rpm/*.rpm ./
+          MIA_BIN="target/x86_64-unknown-linux-gnu/release/mia" ./packaging/build-appimage.sh 0.1.0
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Linux'
+        with:
+          name: mia-agent-rpm
+          path: "*.rpm"
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Linux'
+        with:
+          name: mia-agent-appimage
+          path: "*.AppImage"
+      # Windows: NSIS installer (.exe) — first launch opens Mia's own
+      # in-app setup screen (no model configured yet).
+      - name: Build Windows installer (.exe)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          choco install nsis -y
+          cp "target/x86_64-pc-windows-msvc/release/mia.exe" packaging/windows/mia.exe
+          cd packaging/windows
+          "/c/Program Files (x86)/NSIS/makensis.exe" mia.nsi
+          cp MiaAgent-0.1.0-Setup.exe ../..
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Windows'
+        with:
+          name: mia-agent-setup
+          path: "MiaAgent-*-Setup.exe"
 
   release:
     needs: build
