@@ -5,7 +5,7 @@ It lives on the user's computer, learns from them, and acts in the
 real world (browser, notes, calendar, mail) through isolated Docker
 containers exposed via MCP.
 
-> Status: **Phase 2 — Runtime + Wiki** (`mia-wiki` ✓, `mia-runtime` ✓).
+> Status: **Phase 3 — Native GUI** (`mia-ui` ✓: 3-column Sequoia app, chat, wiki tree, graph canvas).
 > The roadmap is in the project prompt: 5 phases over 10 weeks.
 
 ## Rules
@@ -28,7 +28,7 @@ mia-agent/
 │   ├── mia-runtime/   # agentic loop, hooks, MCP client (Phase 2 ✓)
 │   ├── mia-wiki/       # Markdown ingest, search, storage (Phase 2 ✓)
 │   ├── mia-graph/      # SQLite entities/relations (Phase 1 ✓)
-│   ├── mia-ui/         # Sequoia app, panels, widgets (Phase 3)
+│   ├── mia-ui/         # Sequoia app, panels, widgets (Phase 3 ✓)
 │   └── mia-cli/        # run, ingest, export (Phase 2)
 ├── containers/          # browser, notes, calendar, mail (Phase 4)
 ├── docker-compose.yml
@@ -102,9 +102,11 @@ for the `World`).
   (containers). `harness` ships its own `harness-mcp-client` —
   the likely candidate then.
 - **No model client yet**: the model is injected as
-  `Arc<dyn harness_core::Model>`. Real-model wiring
-  (`harness-models::OpenAiCompat`) comes with the CLI, once a
-  provider is chosen.
+  `Arc<dyn harness_core::Model>`. The `mia` GUI binary wires one
+  when `MIA_MODEL_KEY` is set (`harness-models::OpenAiCompat` over
+  `LlmConfig`; base URL and model id from `MIA_MODEL_BASE_URL` /
+  `MIA_MODEL_ID`), and falls back to `mia-ui::NoModel` otherwise.
+  The CLI wiring is still open (`mia-cli` is not built yet).
 - `MiaRuntime::handle` runs the anti-overlap flow: `classify`
   (preference → `USER.md` max 20 lines, fact → graph, document →
   wiki, question → consult wiki + graph, inject the context, run
@@ -122,6 +124,48 @@ for the `World`).
   heading/length); model-based classification comes with a real
   model.
 
+## Phase 3 — `mia-ui` ✓
+
+The native GUI, built on `sequoia-ui` 0.1.5 (wgpu, retained view
+tree, fine-grained `Signal`s — no WebView, no Tauri, per the spec).
+Run it with `cargo run -p mia-ui` (binary `mia`).
+
+- **Layout**: nested `SplitPanel`s — wiki tree | chat | graph canvas
+  (outer 0.22, inner 0.55, both dividers draggable). Chat: a reactive
+  `List` of messages (role-coloured labels) + `TextField` + Invia.
+  Wiki: a `TreeView` of `list_pages` under one "Wiki" root; clicking
+  a page reads it into the chat. Graph: a `Canvas` that draws the
+  entities on a circle and the relations as labelled edges
+  (2D `Painter` drawing in v0.1; the canvas also supports WGSL
+  shader passes for later polish).
+- **Threading**: button callbacks are synchronous, but
+  `MiaRuntime::handle` is async and the harness loop needs a Tokio
+  runtime (it sleeps between turns). Submit goes through
+  `AsyncRuntime::spawn_future`, whose future blocks on a Tokio
+  `Handle`; the answer is applied on the UI thread, then the wiki
+  tree and the graph reload. A `pending()` signal shows
+  "Mia sta pensando…" while a reply is in flight.
+- **Model**: `mia-ui::NoModel` answers every completion with an
+  honest "no model configured" message, so the app runs and stays
+  useful without a provider key — preferences, facts and documents
+  never touch the model. With `MIA_MODEL_KEY` set, the binary
+  builds `OpenAiCompat` (`LlmConfig::new("mia-model", base, key,
+  model)`; defaults `https://api.meta.ai/v1` /
+  `muse-spark-1.1`). Note: `OpenAiCompat` is built from an
+  `LlmConfig`, not from a `with_key` constructor (that one belongs
+  to the speech models).
+- **Data**: `--data-dir` (default `./mia-data`) holds `wiki/`,
+  `graph.db` and `USER.md`; `--wiki-dir` / `--graph-db` /
+  `--user-md` override each path.
+- **Deviation from the spec**: the spec pins `wgpu` 24, but
+  `sequoia-ui` 0.1.5 brings its own wgpu through
+  `sequoia_platform` — `mia-ui` does not depend on `wgpu`
+  directly. The graph canvas is 2D in v0.1; the WGSL canvas the
+  spec names is a Phase 5 polish item.
+- **Not smoke-tested on a display yet**: the crate builds and its
+  unit tests pass on a headless VM, but no window was opened there
+  — the first real run belongs on a machine with a display.
+
 ## Verify
 
 ```sh
@@ -129,5 +173,6 @@ cargo test -p mia-core
 cargo test -p mia-graph
 cargo test -p mia-wiki
 cargo test -p mia-runtime
-cargo clippy -p mia-wiki -p mia-runtime --all-targets -- -D warnings
+cargo test -p mia-ui
+cargo clippy -p mia-wiki -p mia-runtime -p mia-ui --all-targets -- -D warnings
 ```

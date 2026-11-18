@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/mia-core", "crates/mia-graph", "crates/mia-wiki", "crates/mia-runtime"]
+members = ["crates/mia-core", "crates/mia-graph", "crates/mia-wiki", "crates/mia-runtime", "crates/mia-ui"]
 resolver = "2"
 
 [workspace.package]
@@ -22,3 +22,5 @@ tokio = { version = "1", features = ["full"] }
 harness-rs-loop = "0.0.72"
 harness-rs-core = "0.0.72"
 harness-rs-context = "0.0.72"
+harness-rs-models = "0.0.72"
+sequoia-ui = "0.1.5"

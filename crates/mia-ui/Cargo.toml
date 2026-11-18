@@ -1,0 +1,24 @@
+[package]
+name = "mia-ui"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "Apache-2.0"
+
+[[bin]]
+name = "mia"
+path = "src/main.rs"
+
+[dependencies]
+mia-core = { path = "../mia-core" }
+mia-runtime = { path = "../mia-runtime" }
+mia-wiki = { path = "../mia-wiki" }
+mia-graph = { path = "../mia-graph" }
+sequoia-ui = { workspace = true }
+harness-rs-core = { workspace = true }
+harness-rs-models = { workspace = true }
+tokio = { workspace = true }
+async-trait = { workspace = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
