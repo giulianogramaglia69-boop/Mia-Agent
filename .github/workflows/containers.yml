@@ -1,0 +1,62 @@
+name: containers
+
+on:
+  push:
+    paths:
+      - "containers/**"
+      - "crates/mia-google/**"
+      - "crates/mia-mcp/**"
+      - "docker-compose.yml"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/containers.yml"
+  pull_request:
+    paths:
+      - "containers/**"
+      - "crates/mia-google/**"
+      - "crates/mia-mcp/**"
+      - "docker-compose.yml"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/containers.yml"
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build mia-notes
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: containers/mia-notes/Dockerfile
+          push: false
+      - name: Build mia-browser
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: containers/mia-browser/Dockerfile
+          push: false
+      - name: Build mia-calendar
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: containers/mia-calendar/Dockerfile
+          push: false
+      - name: Build mia-mail
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: containers/mia-mail/Dockerfile
+          push: false
+      - name: Validate compose file
+        run: docker compose config -q
+
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Test MCP crates and containers
+        run: cargo test -p mia-mcp -p mia-google -p mia-notes -p mia-browser -p mia-calendar -p mia-mail
