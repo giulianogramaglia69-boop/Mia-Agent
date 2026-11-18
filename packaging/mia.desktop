@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Mia Agent
+Comment=Il tuo agente personale: wiki, grafo e chat in un'app nativa
+Exec=mia
+Icon=mia
+Terminal=false
+Categories=Utility;Office;
+StartupWMClass=mia

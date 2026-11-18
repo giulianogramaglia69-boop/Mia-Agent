@@ -5,8 +5,35 @@ It lives on the user's computer, learns from them, and acts in the
 real world (browser, notes, calendar, mail) through isolated Docker
 containers exposed via MCP.
 
-> Status: **Phase 5 — Polish** (`mia-mcp` ✓, containers ✓, WGSL graph glow ✓).
+> Status: **Phase 5 — Polish** (`mia-mcp` ✓, containers ✓, WGSL graph glow ✓)
+> + **setup in-app** ✓ (primo avvio guidato dentro la GUI) e **installazione
+> user-friendly** ✓ (installer `.rpm` / `.AppImage` / `.exe`, `packaging/install.sh`,
+> release precompilate su tag).
 > The roadmap is in the project prompt: 5 phases over 10 weeks.
+
+## Installazione (senza terminale, dopo la prima volta)
+
+1. Scarica l'installer della tua piattaforma dalla
+   [pagina Release](https://github.com/giulianogramaglia69-boop/Mia-Agent/releases):
+   **`.rpm`** (Fedora/RHEL: `sudo dnf install mia-agent-*.rpm`),
+   **`.AppImage`** (Linux: rendilo eseguibile e aprilo),
+   **`.exe`** (Windows: installer con scorciatoia nel menu Start).
+   In alternativa, i binari semplici (`mia-linux-x86_64`,
+   `mia-windows-x86_64.exe`, `mia-macos-aarch64`) oppure compila e
+   installa dal repo: `./packaging/install.sh` (mette `mia` in
+   `~/.local/bin` e "Mia Agent" nel menu applicazioni).
+2. Avvia Mia: al primo avvio la schermata di setup ti fa scegliere il
+   provider (Gemini, Groq, DeepSeek, Muse Spark, OpenAI, Ollama locale o
+   un endpoint tuo), incollare la chiave e partire — niente terminale.
+   La chiave resta solo in `~/mia-data/model.yaml`, sul tuo computer.
+3. "Salta per ora" apre Mia senza modello: preferenze, fatti e pagine
+   funzionano comunque; per rivedere il setup cancella
+   `~/mia-data/.setup-skipped` (o dai `mia --setup` da terminale).
+
+Gli strumenti (note, browser, calendario, mail) si attivano da
+`mia-data/mcp.yaml` — l'esempio pronto è in `containers/README.md`.
+Calendario e mail chiedono una sola autorizzazione Google
+(`mia-calendar auth` / `mia-mail auth`, codice su google.com/device).
 
 ## Rules
 
@@ -34,6 +61,8 @@ mia-agent/
 │   └── mia-cli/        # run, ingest, export (Phase 2)
 ├── containers/          # browser, notes, calendar, mail (Phase 4 ✓)
 ├── docker-compose.yml
+├── packaging/           # install.sh, mia.desktop, mia.svg, build-appimage.sh, windows/mia.nsi
+├── .github/workflows/   # containers.yml (CI) + release.yml (binari su tag)
 └── README.md
 ```
 
@@ -161,7 +190,7 @@ Run it with `cargo run -p mia-ui` (binary `mia`).
   would be used without opening the GUI. Note: `OpenAiCompat` is
   built from an `LlmConfig`, not from a `with_key` constructor (that
   one belongs to the speech models).
-- **Data**: `--data-dir` (default `./mia-data`) holds `wiki/`,
+- **Data**: `--data-dir` (default `$HOME/mia-data`) holds `wiki/`,
   `graph.db`, `USER.md` and `model.yaml`; `--wiki-dir` / `--graph-db` /
   `--user-md` override each path.
 - **Deviation from the spec**: the spec pins `wgpu` 24, but

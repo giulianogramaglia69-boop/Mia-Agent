@@ -8,13 +8,19 @@
 //! `mia --dry-run`: mostra quale modello verrebbe usato e quali server MCP
 //! sono collegati, senza aprire la GUI.
 //!
+//! Al primo avvio senza modello la GUI stessa mostra la schermata di
+//! setup (stessa scelta del wizard, dentro l'app); "Salta per ora" scrive
+//! il marcatore `.setup-skipped` in `mia-data` e apre Mia senza modello.
+//!
 //! MCP: i server in `mia-data/mcp.yaml` (note, browser, calendario, mail)
 //! sono collegati all'avvio come provider di tool del runtime; un server
 //! che non parte non blocca l'app (avviso su stderr).
 //!
-//! Data defaults to `./mia-data` (wiki in `mia-data/wiki`, graph in
+//! Data defaults to `$HOME/mia-data` (wiki in `mia-data/wiki`, graph in
 //! `mia-data/graph.db`, preferences in `mia-data/USER.md`, model config
-//! in `mia-data/model.yaml`).
+//! in `mia-data/model.yaml`); `./mia-data` only when HOME is unset.
+//! Home-based so an installed app (rpm, AppImage, menu entry) always
+//! finds the same data no matter which directory it is launched from.
 //!
 //! Model: la precedenza è `MIA_MODEL_KEY` (con `MIA_MODEL_BASE_URL` e
 //! `MIA_MODEL_ID`, default Meta `https://api.meta.ai/v1` / `muse-spark-1.1`),
@@ -36,11 +42,17 @@ use mia_runtime::{MiaRuntime, RuntimeBudget};
 use mia_ui::{MiaApp, ModelConfig, NoModel, run_setup};
 use mia_wiki::FileWiki;
 
+/// Default data dir: `$HOME/mia-data` when HOME is set, else `./mia-data`.
+fn default_data_dir() -> PathBuf {
+    match env::var("HOME") {
+        Ok(home) if !home.trim().is_empty() => PathBuf::from(home).join("mia-data"),
+        _ => PathBuf::from("mia-data"),
+    }
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let opts = Options::parse(env::args().skip(1));
-    let data_dir = opts
-        .data_dir
-        .unwrap_or_else(|| PathBuf::from("mia-data"));
+    let data_dir = opts.data_dir.unwrap_or_else(default_data_dir);
     let wiki_dir = opts.wiki_dir.unwrap_or_else(|| data_dir.join("wiki"));
     let graph_db = opts.graph_db.unwrap_or_else(|| data_dir.join("graph.db"));
     let user_md = opts.user_md.unwrap_or_else(|| data_dir.join("USER.md"));
@@ -54,7 +66,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         return Ok(());
     }
 
-    let (model, model_desc): (Arc<dyn Model>, String) =
+    let (model, model_desc, mut show_setup): (Arc<dyn Model>, String, bool) =
         match env::var("MIA_MODEL_KEY") {
             Ok(key) if !key.trim().is_empty() => {
                 let base = env::var("MIA_MODEL_BASE_URL")
@@ -67,6 +79,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                         "mia-model", base, key, model_id,
                     ))),
                     desc,
+                    false,
                 )
             }
             _ => match ModelConfig::load(&data_dir) {
@@ -77,16 +90,22 @@ fn main() -> Result<(), Box<dyn Error>> {
                         config.model,
                         ModelConfig::path(&data_dir).display()
                     );
-                    (Arc::new(OpenAiCompat::new(config.to_llm_config())), desc)
+                    (Arc::new(OpenAiCompat::new(config.to_llm_config())), desc, false)
                 }
                 None => {
                     eprintln!(
-                        "Mia: nessun modello configurato (mia --setup per sceglierne uno, o imposta MIA_MODEL_KEY)."
+                        "Mia: nessun modello configurato — alla prima apertura ti guido io nel setup."
                     );
-                    (Arc::new(NoModel), "nessun modello (NoModel)".to_string())
+                    (Arc::new(NoModel), "nessun modello (NoModel)".to_string(), true)
                 }
             },
         };
+
+    // Il setup in-app si mostra solo finché non viene saltato: il
+    // marcatore `.setup-skipped` in mia-data lo disattiva.
+    if show_setup && data_dir.join(".setup-skipped").exists() {
+        show_setup = false;
+    }
 
     // The harness loop sleeps between turns, so runtime calls need a
     // Tokio runtime. It lives for the whole app lifetime.
@@ -140,7 +159,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         RuntimeBudget::default(),
     ))?;
 
-    MiaApp::new(Arc::new(runtime), wiki, graph, handle).run()?;
+    MiaApp::new(Arc::new(runtime), wiki, graph, handle, data_dir, show_setup).run()?;
     Ok(())
 }
 
@@ -190,5 +209,23 @@ impl Options {
             }
         }
         opts
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_data_dir_uses_home() {
+        // SAFETY: this is the only test in the binary that touches HOME.
+        unsafe {
+            env::set_var("HOME", "/home/prova");
+        }
+        assert_eq!(default_data_dir(), PathBuf::from("/home/prova/mia-data"));
+        unsafe {
+            env::remove_var("HOME");
+        }
+        assert_eq!(default_data_dir(), PathBuf::from("mia-data"));
     }
 }

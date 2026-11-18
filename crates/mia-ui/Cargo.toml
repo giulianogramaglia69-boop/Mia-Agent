@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.88"
 license = "Apache-2.0"
+description = "Mia Agent — a native personal AI agent with a GUI (chat, wiki, knowledge graph)"
 
 [[bin]]
 name = "mia"
@@ -26,3 +27,31 @@ serde_yaml = { workspace = true }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+
+# RPM packaging via `cargo generate-rpm` (no rpmbuild needed):
+#   cargo generate-rpm -p mia-ui --name mia-agent
+# The binary goes to /usr/bin/mia; desktop file + icon below.
+[package.metadata.generate-rpm]
+name = "mia-agent"
+assets = [
+  # "target/release/..." is rewritten to the build target dir
+  # (workspace target/, or target/<triple>/ with --target).
+  { source = "target/release/mia", dest = "/usr/bin/mia", mode = "755" },
+  { source = "../../packaging/mia.desktop", dest = "/usr/share/applications/mia.desktop", mode = "644" },
+  { source = "../../packaging/mia.svg", dest = "/usr/share/icons/hicolor/128x128/apps/mia.svg", mode = "644" },
+]
+# The GUI dlopens the graphics stack at runtime (wgpu/winit): Vulkan +
+# X11/Wayland + xkbcommon. Fedora package names; on Fedora Workstation
+# most are already installed. (cargo-generate-rpm 0.21 wants a table
+# name -> version, "*" means any version.)
+[package.metadata.generate-rpm.requires]
+libxkbcommon = "*"
+libxkbcommon-x11 = "*"
+mesa-vulkan-drivers = "*"
+mesa-libEGL = "*"
+mesa-libGL = "*"
+libX11 = "*"
+libXcursor = "*"
+libXrandr = "*"
+libXi = "*"
+wayland = "*"

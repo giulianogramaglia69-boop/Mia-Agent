@@ -1,2 +1,7 @@
 /target
+/crates/*/target
 Cargo.lock
+.appimagetool/
+Mia.AppDir/
+*.AppImage
+*.rpm

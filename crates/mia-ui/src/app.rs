@@ -12,6 +12,7 @@
 //! blocks on the Tokio handle; the answer is applied back on the UI
 //! thread, where it refreshes the chat, the wiki tree and the graph.
 
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
@@ -26,6 +27,7 @@ use sequoia_ui::view::{Canvas, Painter};
 use crate::chat::{ChatMessage, ChatRole, ChatRow};
 use crate::glow::{GraphGlow, graph_glow};
 use crate::layout::layout_graph;
+use crate::setup_view::setup_view;
 use crate::tree::pages_to_nodes;
 
 /// Accent blue for nodes and the user's label.
@@ -48,6 +50,8 @@ pub struct MiaApp {
     graph: Arc<dyn GraphEngine>,
     async_rt: AsyncRuntime,
     tokio: tokio::runtime::Handle,
+    data_dir: PathBuf,
+    show_setup: bool,
     messages: Signal<Vec<ChatRow>>,
     next_id: Arc<AtomicU64>,
     draft: Signal<String>,
@@ -62,11 +66,15 @@ impl MiaApp {
     /// Build the app around an already-constructed runtime and engines.
     /// Wiki pages and graph facts are loaded once here; they are
     /// reloaded after every answer (a reply may have stored new facts).
+    /// `show_setup` apre la schermata di primo avvio invece delle tre
+    /// colonne (nessun modello configurato e setup non ancora saltato).
     pub fn new(
         runtime: Arc<MiaRuntime>,
         wiki: Arc<dyn WikiEngine>,
         graph: Arc<dyn GraphEngine>,
         tokio: tokio::runtime::Handle,
+        data_dir: PathBuf,
+        show_setup: bool,
     ) -> Self {
         let app = Self {
             runtime,
@@ -74,6 +82,8 @@ impl MiaApp {
             graph,
             async_rt: AsyncRuntime::with_default_threads(),
             tokio,
+            data_dir,
+            show_setup,
             messages: Signal::new(vec![ChatRow::new(
                 0,
                 ChatMessage::mia(
@@ -94,15 +104,19 @@ impl MiaApp {
     }
 
     /// Start the window and run the event loop on the current thread.
+    /// Al primo avvio senza modello mostra la schermata di setup.
     pub fn run(self) -> Result<(), AppError> {
-        App::new()
+        let builder = App::new()
             .title("Mia Agent")
             .size(1280.0, 800.0)
             // Lo shader del grafo va registrato o il suo disegno è un no-op
             // silenzioso (Fase 5).
-            .shader_type::<GraphGlow>()
-            .root(self.view())
-            .run()
+            .shader_type::<GraphGlow>();
+        if self.show_setup {
+            builder.root(setup_view(self.data_dir.clone())).run()
+        } else {
+            builder.root(self.view()).run()
+        }
     }
 
     /// The whole window: wiki | chat | graph. Consumes the app: the

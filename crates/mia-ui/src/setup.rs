@@ -66,6 +66,46 @@ impl ModelConfig {
     }
 }
 
+/// Costruisce la configurazione del modello dai campi del setup in-app.
+/// Regole: la chiave è obbligatoria tranne che per Ollama (segnaposto
+/// `"ollama"`); il modello vuoto diventa il default del provider; l'URL
+/// base deve iniziare con `http://` o `https://`.
+pub fn build_config(
+    provider: ModelProvider,
+    key: &str,
+    model: &str,
+    base_url: &str,
+) -> Result<ModelConfig, String> {
+    let key = key.trim();
+    let model = model.trim();
+    let base_url = base_url.trim();
+    let api_key = if provider.needs_key() {
+        if key.is_empty() {
+            return Err("La chiave non può essere vuota.".to_string());
+        }
+        key.to_string()
+    } else {
+        "ollama".to_string()
+    };
+    let model = if model.is_empty() {
+        provider.default_model().to_string()
+    } else {
+        model.to_string()
+    };
+    if model.is_empty() {
+        return Err("Il modello non può essere vuoto.".to_string());
+    }
+    if !(base_url.starts_with("http://") || base_url.starts_with("https://")) {
+        return Err("L'URL base deve iniziare con http:// o https://.".to_string());
+    }
+    Ok(ModelConfig {
+        provider: provider.id().to_string(),
+        api_key,
+        model,
+        base_url: base_url.to_string(),
+    })
+}
+
 /// Wizard interattivo: sceglie il provider, chiede modello e chiave,
 /// salva `model.yaml`. `input`/`out` sono iniettabili per i test.
 pub fn run_setup(
@@ -251,6 +291,65 @@ mod tests {
         assert!(text.contains("Groq"), "l'output nomina Groq");
         assert!(!text.contains("sk-groq-test"), "la chiave non viene ristampata");
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn build_config_groq_ok_and_defaults() {
+        let config = build_config(
+            ModelProvider::Groq,
+            "gsk-test",
+            "",
+            "https://api.groq.com/openai/v1",
+        )
+        .expect("config valida");
+        assert_eq!(config.provider, "groq");
+        assert_eq!(config.model, "llama-3.3-70b-versatile");
+        assert_eq!(config.api_key, "gsk-test");
+    }
+
+    #[test]
+    fn build_config_empty_key_rejected() {
+        let err = build_config(
+            ModelProvider::Groq,
+            "   ",
+            "llama-3.3-70b-versatile",
+            "https://api.groq.com/openai/v1",
+        )
+        .expect_err("chiave vuota");
+        assert!(err.contains("chiave"), "{err}");
+    }
+
+    #[test]
+    fn build_config_ollama_needs_no_key() {
+        let config = build_config(
+            ModelProvider::Ollama,
+            "",
+            "",
+            "http://localhost:11434/v1",
+        )
+        .expect("ollama senza chiave");
+        assert_eq!(config.api_key, "ollama");
+        assert_eq!(config.model, "llama3.1");
+    }
+
+    #[test]
+    fn build_config_bad_url_rejected() {
+        let err = build_config(
+            ModelProvider::Custom,
+            "k",
+            "mio-modello",
+            "api.example.com/v1",
+        )
+        .expect_err("url senza schema");
+        assert!(err.contains("http"), "{err}");
+        let config = build_config(
+            ModelProvider::Custom,
+            "k",
+            "mio-modello",
+            "https://api.example.com/v1",
+        )
+        .expect("url https valido");
+        assert_eq!(config.provider, "custom");
     }
 
     #[test]

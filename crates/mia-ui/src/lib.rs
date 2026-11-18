@@ -16,6 +16,7 @@ pub mod layout;
 pub mod model;
 pub mod providers;
 pub mod setup;
+pub mod setup_view;
 pub mod tree;
 
 pub use app::MiaApp;
@@ -24,5 +25,6 @@ pub use glow::{GraphGlow, graph_glow};
 pub use layout::{EdgeLayout, GraphLayout, NodeLayout, layout_graph};
 pub use model::NoModel;
 pub use providers::ModelProvider;
-pub use setup::{ModelConfig, run_setup};
+pub use setup::{ModelConfig, build_config, run_setup};
+pub use setup_view::setup_view;
 pub use tree::pages_to_nodes;
